@@ -474,7 +474,7 @@ $("clear").onclick=()=>{
  // Remove the initial thermal perturbation without resetting the environment.
  for(let z=0;z<NY;z++)for(let x=0;x<NX;x++){
   const k=idx(x,z);
-  b[k]=0;
+  b[k]=-.00008*z*DZ;
   qc[k]=0;qr[k]=0;
  }
 };
