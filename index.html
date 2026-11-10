@@ -1,364 +1,507 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Линия шквалов: физическая симуляция с земли</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Supercell Physics Lab</title>
 <style>
-  :root{--bg:rgba(10,14,20,.78);--ln:#34465a;--ac:#f0b36a}
-  html,body{margin:0;height:100%;background:#080b10;color:#e8edf2;font:14px/1.4 system-ui,sans-serif;overflow:hidden}
-  canvas{position:fixed;inset:0;width:100%;height:100%}
-  #c{touch-action:none;cursor:grab} #fx{pointer-events:none}
-  .fab{position:fixed;z-index:3;width:42px;height:42px;border-radius:50%;border:1px solid var(--ln);background:var(--bg);color:inherit;font-size:18px;backdrop-filter:blur(6px)}
-  #menuBtn{left:12px;top:calc(12px + env(safe-area-inset-top,0px))} #eye{right:12px;top:calc(12px + env(safe-area-inset-top,0px))}
-  #side{position:fixed;z-index:2;left:12px;top:calc(62px + env(safe-area-inset-top,0px));width:min(330px,calc(100vw - 24px));max-height:calc(100% - 150px);overflow:auto;
-    background:var(--bg);border:1px solid var(--ln);border-radius:12px;backdrop-filter:blur(8px);padding:4px 12px}
-  #bar{position:fixed;z-index:2;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(560px,calc(100vw - 20px));
-    background:var(--bg);border:1px solid var(--ln);border-radius:12px;backdrop-filter:blur(8px);padding:8px 10px}
-  #brief{font-variant-numeric:tabular-nums;font-size:13px;margin-bottom:6px;min-height:1.4em}
-  #prog{height:4px;background:#26323f;border-radius:2px;margin-bottom:8px;overflow:hidden} #prog i{display:block;height:100%;width:0;background:var(--ac)}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
-  button.b{background:#222d3a;color:inherit;border:1px solid var(--ln);border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
-  button.b.on{background:var(--ac);color:#1a1209;border-color:var(--ac)}
-  button:focus-visible,input:focus-visible,summary:focus-visible,select:focus-visible{outline:2px solid var(--ac)}
-  details{border-bottom:1px solid #223040;padding:6px 0} details:last-child{border:0}
-  summary{cursor:pointer;font-weight:600;padding:4px 0}
-  .row{display:grid;grid-template-columns:1fr 1.1fr 3rem;gap:8px;align-items:center;margin:5px 0;font-size:13px} .row output{text-align:right;font-variant-numeric:tabular-nums}
-  .chk{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:13px}
-  .dat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px;font-variant-numeric:tabular-nums} .dat span:nth-child(odd){opacity:.7}
-  small{opacity:.65;display:block;margin:6px 0;font-size:12px} input[type=number]{width:5.5rem;background:#16202b;color:inherit;border:1px solid var(--ln);border-radius:6px;padding:4px}
-  .hide #ui>*:not(#eye){display:none}
+*{box-sizing:border-box}
+body{margin:0;background:#080e17;color:#dce8f5;font:13px Arial,sans-serif;overflow:hidden}
+header{height:48px;background:#101c2a;border-bottom:1px solid #26384b;display:flex;align-items:center;padding:0 12px;gap:12px}
+.logo{font-weight:800;color:#69c5ff;letter-spacing:1px}
+.status{color:#79dba7;margin-left:auto;font-size:11px}
+main{display:flex;height:calc(100dvh - 48px)}
+#view{flex:1;min-width:0;position:relative;background:#050a11}
+canvas{width:100%;height:100%;display:block;touch-action:none}
+#hud{position:absolute;left:10px;top:10px;pointer-events:none;line-height:1.7;background:#091522c9;padding:9px;border:1px solid #26384b;border-radius:7px;font-size:11px}
+#hud b{color:#78caff}
+#side{width:285px;max-width:44vw;background:#0d1723;border-left:1px solid #29394b;overflow:auto;padding:12px}
+h3{font-size:12px;color:#83cfff;margin:15px 0 8px;text-transform:uppercase;letter-spacing:1px}
+h3:first-child{margin-top:2px}
+label{display:flex;justify-content:space-between;margin:10px 0 4px;color:#bdcbd9;font-size:11px}
+output{color:#71caff}
+input[type=range]{width:100%;accent-color:#45a9ee}
+button,select{background:#17283a;color:#e2edf8;border:1px solid #38516a;border-radius:5px;padding:8px;font-size:11px}
+button:active{background:#245078}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.controls button{width:100%}
+select{width:100%}
+.note{font-size:10px;color:#8498ac;line-height:1.5}
+.metric{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #203144;font-size:11px}
+.metric span:last-child{color:#81d0ff;font-variant-numeric:tabular-nums}
+#mobile{display:none}
+@media(max-width:650px){
+ #side{width:190px;max-width:48vw;padding:8px}
+ #hud{font-size:9px;left:5px;top:5px;padding:5px}
+ header{height:42px}
+ main{height:calc(100dvh - 42px)}
+}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas><canvas id="fx"></canvas>
-<div id="ui">
-  <button class="fab" id="menuBtn" aria-label="Меню">☰</button>
-  <button class="fab" id="eye" aria-label="Скрыть интерфейс (клавиша H)">◐</button>
-  <div id="side" hidden></div>
-  <div id="bar">
-    <div id="brief">Считаю…</div><div id="prog"><i></i></div>
-    <div class="chips"><button class="b" id="play">Пауза</button><span class="chips" id="spd"></span><button class="b" id="ff">К фронту</button></div>
+<header>
+ <div class="logo">SC / PHYSICS LAB</div>
+ <div style="font-size:10px;color:#91a8bc">NUMERICAL CONVECTION MODEL</div>
+ <div class="status" id="status">INITIALIZING</div>
+</header>
+<main>
+ <section id="view">
+  <canvas id="sim"></canvas>
+  <div id="hud">
+   <b>ATMOSPHERIC STATE</b><br>
+   TIME: <span id="clock">00:00</span><br>
+   MAX UPDRAFT: <span id="updraft">0.0</span> m/s<br>
+   MAX VORTICITY: <span id="vort">0.000</span> s⁻¹<br>
+   CONDENSATE: <span id="cond">0.00</span> g/kg<br>
+   PRECIPITATION: <span id="rain">0.00</span>
   </div>
-</div>
-
-<script id="fs" type="x-shader/x-fragment">
-precision highp float;
-uniform vec2 R; uniform float xo,xf,yaw,pitch,focal,T,el,rain,wind,eye; uniform vec4 flash,lob; uniform sampler2D tx;
-const float DOMX=35.84,DOMZ=12.32;
-float hs(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
-float n(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
- return mix(mix(mix(hs(i),hs(i+vec3(1,0,0)),f.x),mix(hs(i+vec3(0,1,0)),hs(i+vec3(1,1,0)),f.x),f.y),
-            mix(mix(hs(i+vec3(0,0,1)),hs(i+vec3(1,0,1)),f.x),mix(hs(i+vec3(0,1,1)),hs(i+vec3(1,1,1)),f.x),f.y),f.z);}
-float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*n(p);p=p*2.03+vec3(1.7,9.2,3.1);a*=.5;}return s;}
-float gR;
-// Облачная вода и дождь из расчёта + 3D-детализация. Лёд (выше ~6 км) — наковальня: растянутая, полупрозрачная.
-float dens(vec3 p){
-  float X=xo-p.z+lob.x*sin(p.x*.8+lob.y)+.45*sin(p.x*lob.z+lob.w)+.2*sin(p.x*5.3+lob.y*2.);
-  vec2 uv=vec2(X/DOMX,p.y/DOMZ); gR=0.;
-  if(uv.x<0.||uv.x>1.||uv.y<0.||uv.y>1.) return 0.;
-  vec4 s=texture2D(tx,uv);
-  float lat=.78+.44*n(vec3(p.x*.5+lob.y,0.,X*.2));
-  float c=smoothstep(.01,.10,s.r*lat);
-  float ice=smoothstep(5.5,8.5,p.y);
-  vec3 q=vec3(p.x*(1.-.6*ice),p.y,(X-xf)*(1.-.6*ice))*2.4+vec3(lob.w,lob.y,lob.z)*3.;
-  float e=fbm(q);
-  float cau=.12*(n(q*2.1)-.5)*step(.3,c)*(1.-ice);                   // «цветная капуста» башен
-  float dc=clamp((c+cau-(1.-c)*.6*e)*1.8,0.,1.)*mix(1.,.5,ice);
-  float rc=smoothstep(.02,.35,s.g)*(.45+.9*n(vec3(p.x*2.2,p.y*.8,X*.9)))*smoothstep(.2,.65,n(vec3(p.x*.5+lob.z,0.,X*.12))+.3);
-  gR=rc*(1.-.6*dc);
-  return dc;
-}
-void main(){
-  vec2 uv=(gl_FragCoord.xy-.5*R)/R.y;
-  vec3 f=vec3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch));
-  vec3 r=normalize(cross(vec3(0,1,0),f)),u=cross(f,r);
-  vec3 rd=normalize(uv.x*r+uv.y*u+focal*f),ro=vec3(0,eye,0),sd=normalize(vec3(-.8,el,-.3));
-  float day=smoothstep(-.12,.25,el),night=1.-smoothstep(-.18,.02,el);
-  float near=smoothstep(14.,0.,xo-xf);
-  vec3 sunC=mix(vec3(1.,.50,.25),vec3(1.,.90,.75),smoothstep(.04,.4,el))*smoothstep(-.1,.05,el);
-  vec3 hor=mix(vec3(.02,.03,.06),mix(vec3(.98,.62,.38),vec3(.62,.74,.9),smoothstep(.05,.45,el)),day);
-  vec3 zen=mix(vec3(.004,.008,.025),mix(vec3(.2,.28,.5),vec3(.18,.4,.8),smoothstep(0.,.5,el)),day);
-  hor=mix(hor,vec3(.40,.43,.47)*(.15+.85*day),near*.7); zen=mix(zen,vec3(.17,.20,.26)*(.1+.9*day),near*.8);
-  vec3 sky=mix(hor,zen,pow(clamp(rd.y,0.,1.),.4));
-  float sg=max(dot(rd,sd),0.);
-  vec3 bg;
-  if(rd.y>=0.){
-    bg=sky+(pow(sg,40.)*.6+pow(sg,600.)*3.)*sunC;
-    bg+=step(.9975,hs(floor(rd*380.)))*night*(1.-near)*.8;
-    if(rd.y<.003+.004*n(vec3(rd.x*60.,0.,0.))) bg=hor*.3;
-  }else{
-    float t=-ro.y/rd.y; vec3 gp=ro+rd*t;
-    vec2 gq=gp.xz*80.+vec2(0.,T*wind*.02);
-    vec3 g=mix(vec3(.12,.16,.05),vec3(.30,.26,.10),n(vec3(gq,0.))*n(vec3(gp.xz*8.,3.)));
-    g*=(.25+.75*day)*(1.-.55*near)*(1.-.4*rain);
-    bg=mix(g,hor*.8,1.-exp(-t*(.16-.07*rain)));
-  }
-  float tr=1.,t=.1+.1*fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
-  vec3 acc=vec3(0.);
-  float ph=mix(1.,pow(max(dot(rd,sd),0.),6.)*2.5+.5,.5);
-  for(int i=0;i<72;i++){
-    if(t>45.||tr<.02) break;
-    vec3 p=ro+rd*t; if(p.y<0.) break;
-    float dt=.1+t*.05, dn=dens(p), rn=gR;
-    if(dn>.01||rn>.01){
-      float s=0.; for(int k=1;k<=4;k++) s+=dens(p+sd*float(k)*.5);
-      float lit=exp(-s*1.2);
-      vec3 amb=mix(vec3(.07,.09,.13),vec3(.50,.56,.66),clamp(p.y/5.,0.,1.))*(.06+.94*day);
-      amb*=1.-.5*smoothstep(0.,1.,s*.5);
-      vec3 dd=p-flash.xyz; vec3 fl=vec3(.55,.65,1.)*flash.w*exp(-dot(dd,dd)/6.);
-      vec3 cc=amb+sunC*2.3*lit*ph*.55+fl;
-      cc=mix(hor,cc,exp(-t*.03));
-      float a=1.-exp(-dn*dt*4.5); acc+=tr*a*cc; tr*=1.-a;
-      vec3 rc=(amb*.85+sunC*lit*.5)*.8+fl*.8; rc=mix(rc,hor*.7,.25);
-      float ar=1.-exp(-rn*dt*1.7); acc+=tr*ar*rc; tr*=1.-ar;
-    }
-    t+=dt;
-  }
-  vec3 col=acc+tr*bg+vec3(.18,.22,.35)*flash.w*.05;
-  col=pow(1.-exp(-col*1.2),vec3(.85));
-  if(rain>.01){ // капли у камеры
-    float cl=hs(vec3(floor(uv.x*110.+uv.y*8.*wind*.05),0.,3.));
-    float yy=fract(uv.y*3.+T*2.6+cl*7.);
-    col+=step(.84,cl)*smoothstep(0.,.1,yy)*(1.-smoothstep(.1,.35,yy))*.07*rain;
-  }
-  col*=1.-.35*dot(uv,uv);
-  col+=(fract(sin(dot(gl_FragCoord.xy,vec2(5.3,9.1))+T)*4375.5)-.5)*.015;
-  gl_FragColor=vec4(col,1.);
-}
-</script>
-
-<script id="simjs">
-//SIM-START
-// Двумерная модель вертикального разреза: течение (Буссинеск, сетка MAC), тепло, влага, дождь,
-// конденсация и испарение, холодная подушка, сдвиг ветра, подпитка у фронта.
-const NX=256,NZ=88,DX=140,DT=3,G=9.81,N=NX*NZ;
-let u,w,th,qt,qc,qr,p,xs,zs,tmp1,tmp2,tmp3,rr,thE=[],qtE=[],simT=0,prm={},frontM=5000;
-const v={t:30,td:26,dth:9,h:2600,us:18,qf:1};
-const sst=(a,b,x)=>{x=Math.min(1,Math.max(0,(x-a)/(b-a)));return x*x*(3-2*x)};
-function mul(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-function qsat(T,z){const Tc=T-273.15,es=6.112*Math.exp(17.67*Tc/(Tc+243.5)),pr=1000*Math.exp(-z/8000);return .622*es/(pr-es)}
-const envTh=(z,T0)=>T0+.0021*Math.min(z,9500)+.012*Math.max(0,z-9500);
-function adjust(){
-  for(let j=0;j<NZ;j++){const z=(j+.5)*DX;
-    for(let i=0;i<NX;i++){const k=i+j*NX,T=th[k]-.0098*z,qs=qsat(T,z),gam=2490*qs*2.5e6/(461.5*T*T);
-      let dq=(qt[k]-qc[k]-qs)/(1+gam); if(dq<-qc[k])dq=-qc[k]; qc[k]+=dq; th[k]+=2490*dq;}}
-}
-function init(seed){
-  const rd=mul(seed*7919+13);
-  prm={x0:4200+rd()*2200,dryZ:2500+rd()*3500,dryA:.25+.45*rd(),ph:rd()*6.28,amp:.04+.16*rd(),edge:rd()*6.28,sh:.85+.3*rd(),wid:1200+rd()*1200};
-  u=new Float32Array((NX+1)*NZ);w=new Float32Array(NX*(NZ+1));
-  [th,qt,qc,qr,p,xs,zs,tmp1,tmp2,tmp3,rr]=Array.from({length:11},()=>new Float32Array(N));
-  const T0=v.t+273.15,q0=qsat(Math.min(v.td,v.t)+273.15,0);
-  for(let j=0;j<NZ;j++){const z=(j+.5)*DX;thE[j]=envTh(z,T0);
-    qtE[j]=Math.min(q0,q0*Math.exp(-z/2000))*(1-prm.dryA*Math.exp(-((z-prm.dryZ)/900)**2));
-    for(let i=0;i<NX;i++){const X=(i+.5)*DX,k=i+j*NX,x0=prm.x0+300*Math.sin(z/900+prm.edge),c=v.dth*(1-sst(x0-prm.wid,x0,X))*(1-sst(v.h-400,v.h+400,z));
-      th[k]=thE[j]-c+(rd()-.5)*prm.amp*2;qt[k]=qtE[j]*(1-.45*c/v.dth);}}
-  for(let j=0;j<NZ;j++){const z=(j+.5)*DX,ue=v.us*prm.sh*Math.min(1,Math.max(-.4,(z-2500)/6000));
-    for(let i=1;i<NX;i++){const X=i*DX;u[i+j*(NX+1)]=ue*sst(0,6000,X)*sst(0,6000,NX*DX-X);}}
-  adjust();project(30);simT=0;frontM=prm.x0;
-}
-function sam(a,nx,ny,x,y){x=x<0?0:x>nx-1?nx-1:x;y=y<0?0:y>ny-1?ny-1:y;
-  const i=x|0,j=y|0,i1=i<nx-1?i+1:i,j1=j<ny-1?j+1:j,fx=x-i,fy=y-j;
-  return (a[i+j*nx]*(1-fx)+a[i1+j*nx]*fx)*(1-fy)+(a[i+j1*nx]*(1-fx)+a[i1+j1*nx]*fx)*fy}
-const gu=(X,Z)=>sam(u,NX+1,NZ,X/DX,Z/DX-.5), gw=(X,Z)=>sam(w,NX,NZ+1,X/DX-.5,Z/DX);
-function adv(a){ // MacCormack: меньше размазывания
-  for(let k=0;k<N;k++)tmp1[k]=sam(a,NX,NZ,xs[k],zs[k]);
-  for(let j=0;j<NZ;j++)for(let i=0;i<NX;i++){const k=i+j*NX,x=Math.min(NX-1,Math.max(0,xs[k])),z=Math.min(NZ-1,Math.max(0,zs[k]));
-    const i0=x|0,j0=z|0,i1=Math.min(NX-1,i0+1),j1=Math.min(NZ-1,j0+1),A=a[i0+j0*NX],B=a[i1+j0*NX],C=a[i0+j1*NX],D=a[i1+j1*NX];
-    const c=tmp1[k]+.5*(a[k]-sam(tmp1,NX,NZ,2*i-xs[k],2*j-zs[k]));
-    tmp3[k]=Math.min(Math.max(A,B,C,D),Math.max(Math.min(A,B,C,D),c));}
-  a.set(tmp3)}
-function project(its){
-  for(let j=0;j<NZ;j++)for(let i=0;i<NX;i++)tmp2[i+j*NX]=(u[i+1+j*(NX+1)]-u[i+j*(NX+1)]+w[i+(j+1)*NX]-w[i+j*NX])/DX;
-  for(let it=0;it<its;it++)for(let j=0;j<NZ;j++)for(let i=0;i<NX;i++){const k=i+j*NX;let s=0,c=0;
-    if(i>0){s+=p[k-1];c++}if(i<NX-1){s+=p[k+1];c++}if(j>0){s+=p[k-NX];c++}if(j<NZ-1){s+=p[k+NX];c++}
-    p[k]=(s-DX*DX*tmp2[k]/DT)/c;}
-  for(let j=0;j<NZ;j++)for(let i=1;i<NX;i++)u[i+j*(NX+1)]-=DT*(p[i+j*NX]-p[i-1+j*NX])/DX;
-  for(let j=1;j<NZ;j++)for(let i=0;i<NX;i++)w[i+j*NX]-=DT*(p[i+j*NX]-p[i+(j-1)*NX])/DX;
-}
-function micro(){
-  for(let j=0;j<NZ;j++){const z=(j+.5)*DX;for(let i=0;i<NX;i++){const k=i+j*NX,T=th[k]-.0098*z,qs=qsat(T,z),gam=2490*qs*2.5e6/(461.5*T*T);
-    const c=Math.min(qc[k],Math.max(0,qc[k]-6e-4)*.0015*DT+DT*2.2*qc[k]*Math.pow(qr[k]+1e-9,.875)); // дождь из облака
-    qc[k]-=c;qt[k]-=c;qr[k]+=c;
-    if(qr[k]>1e-7){const qv=qt[k]-qc[k];if(qv<qs){const f=Math.min(1,DT*.004*(1+30*Math.sqrt(qr[k]*1e3))),ev=Math.min(qr[k],f*(qs-qv)/(1+gam));
-      qr[k]-=ev;qt[k]+=ev;th[k]-=2490*ev;}}}}   // испарение дождя охлаждает воздух: так растёт холодная подушка
-  rr.fill(0);
-  for(let j=0;j<NZ;j++)for(let i=0;i<NX;i++){const k=i+j*NX,d=qr[k]*Math.min(.5,5.5*DT/DX);qr[k]-=d;if(j>0)qr[k-NX]+=d;else rr[i]+=d;}
-}
-function frontKm(){let i=NX-1;const k=NX;while(i>0&&th[i+k]-thE[1]>-.12*v.dth)i--;return (i+.5)*DX/1000}
-function step(){
-  for(let j=1;j<NZ;j++)for(let i=0;i<NX;i++){const a=i+(j-1)*NX,b=i+j*NX;
-    w[b]+=DT*G*(((th[a]+th[b])/2-(thE[j-1]+thE[j])/2)/300-(qc[a]+qc[b]+qr[a]+qr[b])/2);}
-  if(simT<3000){ // подпитка у фронта: сходимость ветра поднимает тёплый влажный воздух
-    const A=v.qf*.0035*(.6+.4*Math.sin(simT/420+prm.ph))*(1-sst(2000,3000,simT)*.8),xc=frontM-500;
-    for(let j=0;j<NZ;j++){const z=(j+.5)*DX;if(z>2400)break;const fz=Math.sin(Math.PI*z/2400);
-      for(let i=0;i<NX;i++){const dx=((i+.5)*DX-xc)/1800;if(Math.abs(dx)<1){const m=fz*(1-dx*dx),k=i+j*NX;th[k]+=A*DT*m;qt[k]+=v.qf*1.5e-6*DT*m;}}}}
-  for(let j=0;j<NZ;j++)for(let i=0;i<NX;i++){const X=(i+.5)*DX,Z=(j+.5)*DX,k=i+j*NX,U=gu(X,Z),W=gw(X,Z);xs[k]=(X-U*DT)/DX-.5;zs[k]=(Z-W*DT)/DX-.5;}
-  adv(th);adv(qt);adv(qc);adv(qr);
-  const u2=new Float32Array(u.length),w2=new Float32Array(w.length);
-  for(let j=0;j<NZ;j++)for(let i=0;i<=NX;i++){const X=i*DX,Z=(j+.5)*DX;u2[i+j*(NX+1)]=sam(u,NX+1,NZ,(X-gu(X,Z)*DT)/DX,(Z-gw(X,Z)*DT)/DX-.5);}
-  for(let j=0;j<=NZ;j++)for(let i=0;i<NX;i++){const X=(i+.5)*DX,Z=j*DX;w2[i+j*NX]=sam(w,NX,NZ+1,(X-gu(X,Z)*DT)/DX-.5,(Z-gw(X,Z)*DT)/DX);}
-  u.set(u2);w.set(w2);
-  adjust();micro();adjust();project(24);simT+=DT;frontM=frontKm()*1000;
-}
-function stats(io){let top=0,mw=0;
-  for(let k=0;k<N;k++)if(qc[k]>1e-4)top=Math.max(top,(k/NX|0)*DX);
-  for(let k=0;k<w.length;k++)mw=Math.max(mw,Math.abs(w[k]));
-  return{top,mw,gust:(u[io]+u[io+1])/2,T:th[io]-.0098*DX/2-273.15,rain:rr[io]*1.15*DX/DT*3600};}
-//SIM-END
-</script>
-
+ </section>
+ <aside id="side">
+  <h3>Simulation</h3>
+  <div class="controls">
+   <button id="run">Ⅱ PAUSE</button>
+   <button id="reset">↻ RESET</button>
+   <button id="step">+ STEP</button>
+   <button id="clear">CLEAR THERMAL</button>
+  </div>
+  <label>Время модели <output id="timeScaleV">1.0×</output></label>
+  <input id="timeScale" type="range" min=".2" max="3" step=".1" value="1">
+  <label>Слои визуализации</label>
+  <select id="layer">
+   <option value="cloud">Облачная вода / лёд</option>
+   <option value="w">Вертикальная скорость</option>
+   <option value="wind">Поле ветра</option>
+   <option value="vort">Вихревость</option>
+   <option value="theta">Плавучесть / температура</option>
+   <option value="rain">Осадки</option>
+  </select>
+  <h3>Thermodynamic environment</h3>
+  <label>Начальная неустойчивость <output id="capeV">1800</output></label>
+  <input id="cape" type="range" min="100" max="5000" step="50" value="1800">
+  <label>Влажность нижнего слоя <output id="moistV">85%</output></label>
+  <input id="moist" type="range" min="20" max="100" value="85">
+  <label>Подъёмный импульс <output id="liftV">1.5</output></label>
+  <input id="lift" type="range" min="0" max="5" step=".1" value="1.5">
+  <label>Вертикальный сдвиг ветра <output id="shearV">25 m/s</output></label>
+  <input id="shear" type="range" min="0" max="60" value="25">
+  <label>Вращение фонового потока <output id="rotationV">0.0</output></label>
+  <input id="rotation" type="range" min="-1" max="1" step=".05" value="0">
+  <label>Диффузия <output id="diffV">0.015</output></label>
+  <input id="diff" type="range" min=".001" max=".08" step=".001" value=".015">
+  <h3>Microphysics</h3>
+  <label>Эффективность конденсации <output id="condV">1.0</output></label>
+  <input id="condRate" type="range" min=".1" max="3" step=".1" value="1">
+  <label>Образование осадков <output id="rainV">0.8</output></label>
+  <input id="rainRate" type="range" min=".1" max="3" step=".1" value=".8">
+  <label>Испарительное охлаждение <output id="evapV">0.7</output></label>
+  <input id="evap" type="range" min="0" max="2" step=".1" value=".7">
+  <h3>Diagnostics</h3>
+  <div class="metric"><span>Grid</span><span>128 × 80</span></div>
+  <div class="metric"><span>Solver</span><span>2D Boussinesq</span></div>
+  <div class="metric"><span>Pressure iterations</span><span>35</span></div>
+  <div class="metric"><span>Courant control</span><span>Adaptive</span></div>
+  <div class="metric"><span>Max horizontal wind</span><span id="maxWind">0.0 m/s</span></div>
+  <div class="metric"><span>Max buoyancy</span><span id="maxBuoy">0.000</span></div>
+  <div class="metric"><span>Cloud fraction</span><span id="cloudFraction">0%</span></div>
+  <h3>Model limitations</h3>
+  <p class="note">
+  Это двумерная Boussinesq-модель с проекционным решателем давления и упрощённой микрофизикой. Она рассчитывает конвективные потоки, но не является полноценной 3D-LES или WRF. В частности, настоящий трёхмерный мезоциклон, торнадо, наковальня и мамматусы требуют дополнительных пространственных измерений и физических параметризаций.
+  </p>
+ </aside>
+</main>
 <script>
+"use strict";
+
+/*
+ SUPERCell Physics Lab
+ 2D incompressible Boussinesq moist-convection prototype.
+ State variables:
+ u,v = velocity (m/s)
+ p   = kinematic pressure
+ b   = buoyancy (m/s²)
+ qv  = water vapor mixing ratio (kg/kg)
+ qc  = cloud condensate mixing ratio (kg/kg)
+ qr  = precipitating water mixing ratio (kg/kg)
+*/
+
+const NX=128, NY=80;
+const N=NX*NY;
+const DX=100, DZ=100;
+const G=9.81;
+const RHO=1.0;
+const canvas=document.getElementById("sim");
+const ctx=canvas.getContext("2d",{alpha:false});
 const $=id=>document.getElementById(id);
-const cv=$('c'),fx=$('fx'),gl=cv.getContext('webgl',{antialias:false}),g2=fx.getContext('2d');
-if(!gl){document.body.innerHTML='<p style="padding:2rem">Нужен браузер с WebGL.</p>';throw 0}
-const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(o));return o};
-const pr=gl.createProgram();
-gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));
-gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,$('fs').textContent));gl.linkProgram(pr);gl.useProgram(pr);
-gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-const loc=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-const U={};['R','xo','xf','yaw','pitch','focal','T','el','rain','wind','eye','flash','lob','tx'].forEach(k=>U[k]=gl.getUniformLocation(pr,k));
-const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
-[gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER].forEach(f=>gl.texParameteri(gl.TEXTURE_2D,f,gl.LINEAR));
-[gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(f=>gl.texParameteri(gl.TEXTURE_2D,f,gl.CLAMP_TO_EDGE));
-gl.uniform1i(U.tx,0);const px=new Uint8Array(N*4);
-function upload(){for(let k=0;k<N;k++){px[k*4]=Math.min(255,qc[k]/.0012*255);px[k*4+1]=Math.min(255,qr[k]/.003*255)}
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,NX,NZ,0,gl.RGBA,gl.UNSIGNED_BYTE,px)}
+const controls=["cape","moist","lift","shear","rotation","diff","condRate","rainRate","evap","timeScale"];
+let running=true, simTime=0, accumulator=0;
+let lastFrame=0, frames=0, fpsTime=0;
+let imageData;
 
-// ---------- состояние ----------
-const S={xo:18,el:.12,focal:1.4,q:.6,light:1,rainfx:1,sound:0,auto:1,sp:40};
-let seed=(Math.random()*9999)|0,lob=[1,0,2,0],playing=true,yaw=0,pitch=.1,last=performance.now(),clock=0,acc=0,hist=[],xf=5,xf0=5,st={top:0,mw:0,gust:0,T:v.t,rain:0},fast=false,spKeep=40,flashes=0,rainSm=0,gustSm=0;
-const PRE={'Классический шквал':{t:30,td:26,dth:9,h:2600,us:18,qf:1},'Высокий ворот (сухо)':{t:33,td:21,dth:7,h:2200,us:10,qf:1.2},
- 'Тропический ливень':{t:29,td:28,dth:7,h:1900,us:6,qf:1.4},'Сильный дерехо':{t:32,td:26,dth:12,h:3000,us:26,qf:1.4},'Слабая линия':{t:28,td:25,dth:6,h:1800,us:12,qf:.6}};
-function restart(s){if(s!==undefined)seed=s;const r=mul(seed*31+5);lob=[.6+r()*.5,r()*6.28,1.6+r()*1.2,r()*6.28];
-  init(seed);hist=[];xf=xf0=frontKm();upload();flashT=-9;$('sd').value=seed}
+function field(){return new Float32Array(N)}
+let u=field(),v=field(),p=field(),b=field(),qv=field(),qc=field(),qr=field();
+let U=field(),V=field(),B=field(),QV=field(),QC=field(),QR=field();
+let div=field(),curl=field();
 
-// ---------- интерфейс ----------
-const side=$('side');
-function sect(title,open,fn){const d=document.createElement('details');d.open=open;d.innerHTML=`<summary>${title}</summary>`;fn(d);side.appendChild(d);return d}
-const inputs={};
-function slider(parent,obj,key,label,mn,mx,st,onch,fmt){const r=document.createElement('label');r.className='row';
-  r.innerHTML=`<span>${label}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${obj[key]}"><output></output>`;
-  const i=r.querySelector('input'),o=r.querySelector('output');const show=()=>o.textContent=fmt?fmt(+i.value):i.value;show();
-  i.oninput=()=>{obj[key]=+i.value;show();onch&&onch()};inputs[key]={i,show,obj};parent.appendChild(r)}
-function check(parent,obj,key,label,onch){const r=document.createElement('label');r.className='chk';
-  r.innerHTML=`<input type="checkbox" ${obj[key]?'checked':''}><span>${label}</span>`;r.querySelector('input').onchange=e=>{obj[key]=e.target.checked?1:0;onch&&onch()};parent.appendChild(r)}
-sect('Шторм',true,d=>{
-  const c=document.createElement('div');c.className='chips';
-  Object.keys(PRE).forEach(k=>{const b=document.createElement('button');b.className='b';b.textContent=k;
-    b.onclick=()=>{Object.assign(v,PRE[k]);Object.keys(PRE[k]).forEach(q=>{const x=inputs[q];if(x){x.i.value=v[q];x.show()}});restart(Math.random()*9999|0)};c.appendChild(b)});
-  d.appendChild(c);
-  const r=document.createElement('div');r.className='chips';r.style.marginTop='8px';
-  r.innerHTML=`<input id="sd" type="number" aria-label="Номер шторма"><button class="b" id="nw">Новый шторм</button>`;d.appendChild(r);
-  r.querySelector('#sd').onchange=e=>restart(+e.target.value|0);r.querySelector('#nw').onclick=()=>restart(Math.random()*9999|0);
-  check(d,S,'auto','После прохода запускать новый шторм');
-  d.insertAdjacentHTML('beforeend','<small>Номер шторма задаёт случайные детали: форму фронта, сухие прослойки, лопасти. Один и тот же номер даёт тот же шторм.</small>')});
-sect('Атмосфера',false,d=>{const R=()=>restart();
-  slider(d,v,'t','Температура воздуха, °C',20,40,1,R);slider(d,v,'td','Точка росы, °C',14,29,1,R);
-  slider(d,v,'dth','Холод в потоке, K',4,14,.5,R);slider(d,v,'h','Глубина холодной подушки, м',1200,3500,100,R);
-  slider(d,v,'us','Сдвиг ветра, м/с',0,30,1,R);slider(d,v,'qf','Мощность конвекции, ×',.3,2,.1,R);
-  d.insertAdjacentHTML('beforeend','<small>Чем меньше разница температуры и точки росы, тем ниже основание облаков. Умеренный сдвиг ветра делает вал чётче, сильный наклоняет грозу и разносит наковальню.</small>')});
-sect('Вид и эффекты',false,d=>{
-  slider(d,S,'xo','Расстояние от старта до вас, км',10,28,1);
-  slider(d,S,'el','Время суток',-.15,.6,.01,null,x=>x<-.05?'ночь':x<.05?'закат':x<.25?'вечер':'день');
-  slider(d,S,'focal','Увеличение',.9,2.6,.1);slider(d,S,'q','Качество картинки',.3,1,.1,resize);
-  slider(d,S,'light','Молнии, частота',0,3,.25);
-  check(d,S,'rainfx','Капли на камере и мокрая земля');
-  check(d,S,'sound','Звук: ветер, дождь, гром',()=>S.sound&&audioOn());
-  const c=document.createElement('div');c.className='chips';
-  c.innerHTML='<button class="b" id="shot">Снимок</button><button class="b" id="full">Во весь экран</button><button class="b" id="cam">Сбросить взгляд</button>';d.appendChild(c);
-  c.querySelector('#shot').onclick=()=>{gl.drawArrays(gl.TRIANGLES,0,3);const a=document.createElement('a');a.download='shkval.png';a.href=cv.toDataURL('image/png');a.click()};
-  c.querySelector('#full').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.();
-  c.querySelector('#cam').onclick=()=>{yaw=0;pitch=.1}});
-const dat={};
-sect('Данные модели',false,d=>{const g=document.createElement('div');g.className='dat';
-  [['spd','Скорость фронта'],['gust','Ветер у земли'],['tmp','Температура у вас'],['rain','Дождь у вас'],['top','Вершина облака'],['w','Макс. подъём'],['lcl','Основание (≈)'],['fl','Молний']]
-   .forEach(([k,l])=>{g.insertAdjacentHTML('beforeend',`<span>${l}</span><span id="d_${k}">–</span>`);});d.appendChild(g);
-  d.insertAdjacentHTML('beforeend','<small>Все значения берутся из расчёта в клетке, где вы стоите. Скорость фронта получается сама, я её не задаю.</small>')});
-$('menuBtn').onclick=()=>{side.hidden=!side.hidden};
-const toggleUI=()=>document.body.classList.toggle('hide');
-$('eye').onclick=toggleUI;addEventListener('keydown',e=>{if(e.key=='h'||e.key=='H')toggleUI();if(e.key==' '){e.preventDefault();$('play').click()}});
-$('play').onclick=()=>{playing=!playing;$('play').textContent=playing?'Пауза':'Продолжить'};
-[1,5,20,60,200].forEach(s=>{const b=document.createElement('button');b.className='b';b.textContent='×'+s;b.dataset.s=s;
-  b.onclick=()=>{S.sp=s;fast=false;mark()};$('spd').appendChild(b)});
-function mark(){[...$('spd').children].forEach(b=>b.classList.toggle('on',+b.dataset.s==S.sp&&!fast))}mark();
-$('ff').onclick=()=>{if(!fast){spKeep=S.sp;fast=true;S.sp=200;mark();$('ff').classList.add('on')}};
-let drag=null;
-cv.onpointerdown=e=>{drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)};cv.onpointerup=()=>drag=null;
-cv.onpointermove=e=>{if(!drag)return;yaw-=(e.clientX-drag[0])*.004/S.focal*1.4;pitch=Math.min(1.4,Math.max(-.05,pitch+(e.clientY-drag[1])*.004/S.focal*1.4));drag=[e.clientX,e.clientY]};
-function resize(){const s=S.q*Math.min(devicePixelRatio,2);cv.width=Math.max(2,innerWidth*s|0);cv.height=Math.max(2,innerHeight*s|0);gl.viewport(0,0,cv.width,cv.height);
-  fx.width=innerWidth;fx.height=innerHeight}
-addEventListener('resize',resize);
+const idx=(x,z)=>z*NX+x;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const get=(a,x,z)=>{
+ x=(x+NX)%NX; z=clamp(z,0,NY-1);
+ return a[idx(x,z)];
+};
+const sample=(a,x,z)=>{
+ x=(x%NX+NX)%NX; z=clamp(z,0,NY-1);
+ const x0=Math.floor(x),z0=Math.floor(z);
+ const x1=(x0+1)%NX,z1=Math.min(NY-1,z0+1);
+ const fx=x-x0,fz=z-z0;
+ return (1-fz)*((1-fx)*a[idx(x0,z0)]+fx*a[idx(x1,z0)])
+       +fz*((1-fx)*a[idx(x0,z1)]+fx*a[idx(x1,z1)]);
+};
 
-// ---------- молнии: не чаще одной вспышки за раз, с паузой ----------
-let flashT=-9,fl={x:0,y:3,z:6,cg:1,pow:1,pts:[],seed:1},nextFlash=3;
-const rn=mul(Date.now()&0xffff);
-function cam(){const cp=Math.cos(pitch),f=[Math.sin(yaw)*cp,Math.sin(pitch),Math.cos(yaw)*cp],n=Math.hypot(f[2],f[0]),r=[f[2]/n,0,-f[0]/n],
-  u=[f[1]*r[2]-f[2]*r[1],f[2]*r[0]-f[0]*r[2],f[0]*r[1]-f[1]*r[0]];return{f,r,u}}
-function proj(P,c){const d=[P[0],P[1]-.0017,P[2]],dz=d[0]*c.f[0]+d[1]*c.f[1]+d[2]*c.f[2];if(dz<.05)return null;
-  return[innerWidth/2+(d[0]*c.r[0]+d[1]*c.r[1]+d[2]*c.r[2])/dz*S.focal*innerHeight,innerHeight/2-(d[0]*c.u[0]+d[1]*c.u[1]+d[2]*c.u[2])/dz*S.focal*innerHeight]}
-function bolt(a,b,depth,out,amp){if(depth==0){out.push([a,b]);return}
-  const m=[(a[0]+b[0])/2+(rn()-.5)*amp,(a[1]+b[1])/2,(a[2]+b[2])/2+(rn()-.5)*amp];m[1]+=(rn()-.5)*amp*.3;
-  bolt(a,m,depth-1,out,amp*.55);bolt(m,b,depth-1,out,amp*.55);
-  if(depth>2&&rn()<.28){const e=[m[0]+(rn()-.5)*amp*4,m[1]-rn()*amp*5,m[2]+(rn()-.5)*amp*4];bolt(m,e,depth-3,out,amp*.5)}}
-function newFlash(){const dxk=2+rn()*Math.max(1,(xf-1)*.4),xs0=xf-dxk*.5;fl.z=Math.max(-2,S.xo-xs0);fl.x=(rn()-.5)*16;
-  fl.cg=rn()<.55;fl.y=fl.cg?1.6:4+rn()*4;fl.pts=[];
-  if(fl.cg)bolt([fl.x,fl.y,fl.z],[fl.x+(rn()-.5)*1.2,0,fl.z+(rn()-.5)*1.2],6,fl.pts,.9);
-  flashT=0;flashes++;fl.dist=Math.hypot(fl.x,fl.z);fl.pow=1/(1+fl.dist/8);thunder(fl.dist)}
-function flashI(t){let m=0;for(const q of[0,.09,.2])if(t>=q)m=Math.max(m,Math.exp(-(t-q)*(q?16:11))*(q?.7:1));return t<.8?m:0}
-
-// ---------- звук (по желанию) ----------
-let AC,wG,rG,nb;
-function audioOn(){if(AC){AC.resume();return}AC=new AudioContext();nb=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);
-  const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-  const mk=(type,f)=>{const s=AC.createBufferSource();s.buffer=nb;s.loop=true;const b=AC.createBiquadFilter();b.type=type;b.frequency.value=f;const g=AC.createGain();g.gain.value=0;s.connect(b);b.connect(g);g.connect(AC.destination);s.start();return g};
-  wG=mk('lowpass',420);rG=mk('highpass',2600)}
-function thunder(dist){if(!AC||!S.sound)return;const delay=Math.min(9,dist/.34/(1+S.sp/20)),t=AC.currentTime+delay;
-  const s=AC.createBufferSource();s.buffer=nb;const b=AC.createBiquadFilter();b.type='lowpass';b.frequency.value=140+rn()*140;const g=AC.createGain();
-  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.7/(1+dist/6),t+.12);g.gain.exponentialRampToValueAtTime(.001,t+3+rn()*4);
-  s.connect(b);b.connect(g);g.connect(AC.destination);s.start(t);s.stop(t+8)}
-
-// ---------- главный цикл ----------
-let hudAt=0;const io=()=>Math.min(NX-1,Math.max(0,Math.floor(S.xo*1000/DX)));
-resize();restart(seed);
-function frame(now){
-  const dt=Math.min(.1,(now-last)/1000);last=now;clock+=dt;
-  if(playing){acc=Math.min(acc+dt*S.sp/DT,6);let n=0,t0=performance.now();
-    while(acc>=1&&n<6&&performance.now()-t0<20){step();acc--;n++;xf=frontKm();hist.push([simT,xf]);if(hist.length>60)hist.shift()}
-    if(n)upload();
-    if(fast&&S.xo-xf<3){fast=false;S.sp=spKeep;mark();$('ff').classList.remove('on')}
-    if(xf>S.xo+6){if(S.auto)restart(Math.random()*9999|0);else restart(seed)}}
-  const C=cam();
-  if(now-hudAt>250){hudAt=now;st=stats(io());
-    const a=hist[0],b=hist[hist.length-1],sp=a&&b&&b[0]>a[0]?(b[1]-a[1])*1000/(b[0]-a[0]):0,d=S.xo-xf;
-    rainSm+=(st.rain-rainSm)*.4;gustSm+=(st.gust-gustSm)*.4;
-    const eta=sp>1?Math.max(0,d*1000/sp):0,lcl=125*(v.t-Math.min(v.t,v.td));
-    $('brief').innerHTML=d>0?`Фронт в <b>${d.toFixed(1)} км</b> · придёт через <b>${Math.floor(eta/60)} мин</b> · ${sp.toFixed(0)} м/с`
-      :`Фронт над вами · ветер <b>${Math.abs(gustSm).toFixed(0)} м/с</b> · дождь <b>${rainSm.toFixed(0)} мм/ч</b>`;
-    $('prog').firstChild.style.width=Math.max(0,Math.min(100,100*(1-d/Math.max(1,S.xo-xf0))))+'%';
-    const set=(k,t)=>{const e=$('d_'+k);if(e)e.textContent=t};
-    set('spd',sp.toFixed(1)+' м/с ('+(sp*3.6).toFixed(0)+' км/ч)');set('gust',gustSm.toFixed(1)+' м/с');set('tmp',st.T.toFixed(1)+' °C');set('rain',rainSm.toFixed(0)+' мм/ч');
-    set('top',(st.top/1000).toFixed(1)+' км');set('w',st.mw.toFixed(1)+' м/с');set('lcl',lcl+' м');set('fl',flashes);
-    if(AC&&S.sound){wG.gain.setTargetAtTime(Math.min(.5,.03+Math.abs(gustSm)*.025),AC.currentTime,.3);rG.gain.setTargetAtTime(Math.min(.35,rainSm*.004),AC.currentTime,.3)}}
-  // молнии
-  const sev=Math.min(1,Math.max(0,(st.mw-5)/10))*(st.top>5500?1:.2);
-  if(playing&&flashT<0&&clock>nextFlash&&S.light>0&&rn()<dt*S.light*sev*.5){newFlash();nextFlash=clock+1.5+rn()*2.5}
-  let fI=0;if(flashT>=0){flashT+=dt;fI=flashI(flashT)*fl.pow*(fl.cg?1.2:1)*5;if(flashT>.8)flashT=-9}
-  gl.uniform2f(U.R,cv.width,cv.height);gl.uniform1f(U.xo,S.xo);gl.uniform1f(U.xf,xf);gl.uniform1f(U.yaw,yaw);gl.uniform1f(U.pitch,pitch);
-  gl.uniform1f(U.focal,S.focal);gl.uniform1f(U.T,clock);gl.uniform1f(U.el,S.el);gl.uniform1f(U.eye,.0017);
-  gl.uniform1f(U.rain,S.rainfx?Math.min(1,rainSm/40):0);gl.uniform1f(U.wind,Math.abs(gustSm));
-  gl.uniform4f(U.flash,fl.x,fl.y,fl.z,fI);gl.uniform4f(U.lob,lob[0],lob[1],lob[2],lob[3]);
-  gl.drawArrays(gl.TRIANGLES,0,3);
-  g2.clearRect(0,0,fx.width,fx.height);
-  if(flashT>=0&&fl.cg&&fI>.05){g2.lineCap='round';g2.shadowColor='#bcd4ff';g2.shadowBlur=18;
-    const k=Math.min(1,fI/2.5);
-    for(const[a,b]of fl.pts){const A=proj(a,C),B=proj(b,C);if(!A||!B)continue;
-      g2.strokeStyle=`rgba(235,243,255,${k})`;g2.lineWidth=1+3/(1+fl.dist*.4);g2.beginPath();g2.moveTo(A[0],A[1]);g2.lineTo(B[0],B[1]);g2.stroke()}}
-  requestAnimationFrame(frame);
+function params(){
+ return {
+ cape:+$("cape").value,
+ moist:+$("moist").value/100,
+ lift:+$("lift").value,
+ shear:+$("shear").value,
+ rotation:+$("rotation").value,
+ diff:+$("diff").value,
+ cond:+$("condRate").value,
+ rain:+$("rainRate").value,
+ evap:+$("evap").value
+ };
 }
-requestAnimationFrame(frame);
+
+function initialize(){
+ [u,v,p,b,qv,qc,qr].forEach(a=>a.fill(0));
+ const c=params();
+ for(let z=0;z<NY;z++){
+  const height=z*DZ;
+  const frac=z/(NY-1);
+  const baseWind=c.shear*(frac-.5);
+  for(let x=0;x<NX;x++){
+   const k=idx(x,z);
+   u[k]=baseWind;
+   // Moist boundary layer, progressively drier aloft.
+   qv[k]=.004+c.moist*.012*Math.exp(-height/1800);
+   // Weak environmental stratification.
+   b[k]=-.00008*height;
+  }
+ }
+ // A small thermal perturbation is an initial condition, not a scripted storm.
+ const cx=NX*.38, cz=NY*.13;
+ for(let z=0;z<NY;z++)for(let x=0;x<NX;x++){
+  const r2=((x-cx)*DX)**2+((z-cz)*DZ)**2;
+  const thermal=Math.exp(-r2/(650**2));
+  b[idx(x,z)]+=c.lift*.035*thermal;
+  qv[idx(x,z)]+=.0015*thermal;
+ }
+ simTime=0;
+}
+
+function swap(dst,src){dst.set(src)}
+function lap(a,x,z){
+ return (get(a,x+1,z)-2*get(a,x,z)+get(a,x-1,z))/(DX*DX)
+       +(get(a,x,z+1)-2*get(a,x,z)+get(a,x,z-1))/(DZ*DZ);
+}
+
+function advect(src,dst,dt,velX=u,velZ=v){
+ for(let z=0;z<NY;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  const bx=x-velX[k]*dt/DX;
+  const bz=z-velZ[k]*dt/DZ;
+  dst[k]=sample(src,bx,bz);
+ }
+}
+
+function diffuse(a,out,dt,kappa){
+ for(let z=0;z<NY;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  out[k]=a[k]+dt*kappa*lap(a,x,z);
+ }
+}
+
+function project(dt){
+ // Divergence of velocity field.
+ for(let z=0;z<NY;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  div[k]=
+   (get(u,x+1,z)-get(u,x-1,z))/(2*DX)
+  +(get(v,x,z+1)-get(v,x,z-1))/(2*DZ);
+  p[k]=0;
+ }
+ // Solve Poisson equation: laplacian(p)=div/dt.
+ const alpha=DX*DX, beta=DZ*DZ;
+ const denom=2*(alpha+beta);
+ for(let it=0;it<35;it++){
+  for(let z=1;z<NY-1;z++)for(let x=0;x<NX;x++){
+   const k=idx(x,z);
+   const rhs=div[k]/dt;
+   p[k]=(
+    (get(p,x+1,z)+get(p,x-1,z))*beta+
+    (get(p,x,z+1)+get(p,x,z-1))*alpha-
+    rhs*alpha*beta
+   )/denom;
+  }
+  // Neumann top/bottom boundary conditions.
+  for(let x=0;x<NX;x++){
+   p[idx(x,0)]=p[idx(x,1)];
+   p[idx(x,NY-1)]=p[idx(x,NY-2)];
+  }
+ }
+ // Remove pressure gradient.
+ for(let z=1;z<NY-1;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  u[k]-=dt*(get(p,x+1,z)-get(p,x-1,z))/(2*DX);
+  v[k]-=dt*(get(p,x,z+1)-get(p,x,z-1))/(2*DZ);
+ }
+ // Impermeable lower and upper boundaries.
+ for(let x=0;x<NX;x++){
+  v[idx(x,0)]=0;
+  v[idx(x,NY-1)]=0;
+ }
+}
+
+function microphysics(dt,c){
+ for(let z=1;z<NY-1;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  const height=z*DZ;
+  // Simplified saturation mixing ratio profile.
+  const qsat=.014*Math.exp(-height/7200);
+  const excess=Math.max(0,qv[k]-qsat);
+  const cond=excess*(1-Math.exp(-c.cond*dt*.7));
+  qv[k]-=cond;
+  qc[k]+=cond;
+  // Latent heating: approximately 2.5 MJ/kg divided by cp.
+  b[k]+=cond*2500*.0001;
+  // Autoconversion of cloud water to precipitation.
+  const auto=Math.max(0,qc[k]-.0008)*c.rain*dt*.06;
+  qc[k]-=auto;
+  qr[k]+=auto;
+  // Rain falls relative to air.
+  const fall=Math.min(qr[k],qr[k]*dt*.22);
+  qr[k]-=fall;
+  if(z>0)qr[idx(x,z-1)]+=fall;
+  // Evaporation below saturation cools and moistens the air.
+  const deficit=Math.max(0,qsat-qv[k]);
+  const evap=Math.min(qr[k],deficit*c.evap*dt*.025);
+  qr[k]-=evap;
+  qv[k]+=evap;
+  b[k]-=evap*2500*.000075;
+  // Hydrometeor loading.
+  b[k]-=G*(qc[k]+qr[k])*.8;
+ }
+ // Surface precipitation leaves the domain.
+ for(let x=0;x<NX;x++)qr[idx(x,0)]*=.92;
+}
+
+function calculateVorticity(){
+ let max=0;
+ for(let z=1;z<NY-1;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  curl[k]=(get(v,x+1,z)-get(v,x-1,z))/(2*DX)
+          -(get(u,x,z+1)-get(u,x,z-1))/(2*DZ);
+  max=Math.max(max,Math.abs(curl[k]));
+ }
+ return max;
+}
+
+function step(dt){
+ const c=params();
+ // Advection of momentum and thermodynamic scalars.
+ advect(u,U,dt); swap(u,U);
+ advect(v,V,dt); swap(v,V);
+ advect(b,B,dt); swap(b,B);
+ advect(qv,QV,dt); swap(qv,QV);
+ advect(qc,QC,dt); swap(qc,QC);
+ advect(qr,QR,dt); swap(qr,QR);
+
+ // Buoyancy and environmental shear forcing.
+ for(let z=1;z<NY-1;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  v[k]+=b[k]*dt;
+  // Background shear is maintained weakly.
+  const target=c.shear*(z/(NY-1)-.5);
+  u[k]+=(target-u[k])*.0015*dt;
+  // Small Coriolis-like turning term (idealized f-plane).
+  const f=c.rotation*.00012;
+  const uu=u[k],vv=v[k];
+  u[k]+=f*vv*dt;
+  v[k]-=f*uu*dt;
+ }
+
+ // Molecular/subgrid diffusion.
+ diffuse(u,U,dt,c.diff); swap(u,U);
+ diffuse(v,V,dt,c.diff); swap(v,V);
+ diffuse(b,B,dt,c.diff*.5); swap(b,B);
+ diffuse(qv,QV,dt,c.diff*.2); swap(qv,QV);
+ microphysics(dt,c);
+ project(dt);
+ simTime+=dt;
+}
+
+function maxVelocity(){
+ let m=0;
+ for(let k=0;k<N;k++)m=Math.max(m,Math.hypot(u[k],v[k]));
+ return m;
+}
+function stableDt(){
+ const vmax=Math.max(1,maxVelocity());
+ return clamp(.45*Math.min(DX,DZ)/vmax,.04,.8);
+}
+
+function resize(){
+ const r=canvas.getBoundingClientRect();
+ const dpr=Math.min(2,window.devicePixelRatio||1);
+ canvas.width=Math.max(1,Math.floor(r.width*dpr));
+ canvas.height=Math.max(1,Math.floor(r.height*dpr));
+ imageData=ctx.createImageData(canvas.width,canvas.height);
+}
+window.addEventListener("resize",resize);
+
+function color(t){
+ t=clamp(t,0,1);
+ const stops=[
+  [4,12,28],[12,39,78],[15,93,143],
+  [28,155,177],[111,203,185],[220,224,190],[255,255,255]
+ ];
+ const f=t*(stops.length-1),i=Math.min(stops.length-2,Math.floor(f));
+ const a=stops[i],b=stops[i+1],q=f-i;
+ return [0,1,2].map(j=>Math.round(a[j]*(1-q)+b[j]*q));
+}
+
+function draw(){
+ if(!imageData)return;
+ const layer=$("layer").value;
+ const w=canvas.width,h=canvas.height;
+ const data=imageData.data;
+ let min=Infinity,max=-Infinity;
+ const values=layer==="cloud"?qc:layer==="w"?v:
+ layer==="vort"?curl:layer==="theta"?b:layer==="rain"?qr:u;
+ if(layer==="vort")calculateVorticity();
+ for(let k=0;k<N;k++){min=Math.min(min,values[k]);max=Math.max(max,values[k]);}
+ const span=Math.max(1e-8,max-min);
+ for(let py=0;py<h;py++)for(let px=0;px<w;px++){
+  const x=Math.floor(px/w*NX);
+  const z=NY-1-Math.floor(py/h*NY);
+  const k=idx(x,z);
+  let t;
+  if(layer==="cloud")t=clamp(qc[k]*1800,0,1);
+  else if(layer==="rain")t=clamp(qr[k]*2200,0,1);
+  else if(layer==="w")t=clamp(.5+v[k]/35*.5,0,1);
+  else if(layer==="vort")t=clamp(.5+curl[k]*150,0,1);
+  else if(layer==="theta")t=clamp(.5+b[k]*12,0,1);
+  else t=clamp(.5+u[k]/45*.5,0,1);
+  const rgb=color(t);
+  const i=(py*w+px)*4;
+  data[i]=rgb[0];data[i+1]=rgb[1];data[i+2]=rgb[2];data[i+3]=255;
+ }
+ ctx.putImageData(imageData,0,0);
+ drawVectors();
+ updateHud();
+}
+
+function drawVectors(){
+ const stepSize=8;
+ ctx.save();
+ ctx.strokeStyle="rgba(215,240,255,.55)";
+ ctx.lineWidth=1;
+ for(let z=3;z<NY;z+=stepSize)for(let x=3;x<NX;x+=stepSize){
+  const k=idx(x,z);
+  const px=x/NX*canvas.width;
+  const py=(1-z/NY)*canvas.height;
+  const scale=1.4;
+  const dx=u[k]*scale,dy=-v[k]*scale;
+  ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+dx,py+dy);ctx.stroke();
+  const a=Math.atan2(dy,dx);
+  ctx.beginPath();
+  ctx.moveTo(px+dx,py+dy);
+  ctx.lineTo(px+dx-4*Math.cos(a-.5),py+dy-4*Math.sin(a-.5));
+  ctx.moveTo(px+dx,py+dy);
+  ctx.lineTo(px+dx-4*Math.cos(a+.5),py+dy-4*Math.sin(a+.5));
+  ctx.stroke();
+ }
+ ctx.restore();
+}
+
+function updateHud(){
+ let maxUp=0,maxCond=0,maxRain=0,maxB=0,maxW=0,cloud=0;
+ for(let k=0;k<N;k++){
+  maxUp=Math.max(maxUp,v[k]);
+  maxCond=Math.max(maxCond,qc[k]);
+  maxRain=Math.max(maxRain,qr[k]);
+  maxB=Math.max(maxB,b[k]);
+  maxW=Math.max(maxW,Math.hypot(u[k],v[k]));
+  if(qc[k]>.0001)cloud++;
+ }
+ const vort=calculateVorticity();
+ $("clock").textContent=String(Math.floor(simTime/60)).padStart(2,"0")+":"+String(Math.floor(simTime%60)).padStart(2,"0");
+ $("updraft").textContent=maxUp.toFixed(1);
+ $("vort").textContent=vort.toFixed(4);
+ $("cond").textContent=(maxCond*1000).toFixed(2);
+ $("rain").textContent=(maxRain*1000).toFixed(2);
+ $("maxWind").textContent=maxW.toFixed(1)+" m/s";
+ $("maxBuoy").textContent=maxB.toFixed(4);
+ $("cloudFraction").textContent=(cloud/N*100).toFixed(1)+"%";
+}
+
+function loop(ts){
+ if(!lastFrame)lastFrame=ts;
+ const elapsed=Math.min(.05,(ts-lastFrame)/1000);
+ lastFrame=ts;
+ if(running){
+  accumulator+=elapsed*+$("timeScale").value;
+  let n=0;
+  while(accumulator>0&&n<5){
+   const dt=Math.min(stableDt(),accumulator);
+   step(dt);
+   accumulator-=dt;
+   n++;
+  }
+ }
+ draw();
+ requestAnimationFrame(loop);
+}
+
+$("run").onclick=()=>{
+ running=!running;
+ $("run").textContent=running?"Ⅱ PAUSE":"▶ RUN";
+ $("status").textContent=running?"RUNNING":"PAUSED";
+};
+$("reset").onclick=()=>{initialize();accumulator=0};
+$("step").onclick=()=>{if(!running)step(stableDt())};
+$("clear").onclick=()=>{
+ // Remove the initial thermal perturbation without resetting the environment.
+ for(let z=0;z<NY;z++)for(let x=0;x<NX;x++){
+  const k=idx(x,z);
+  b[k]=-.00008*z*DZ;
+  qc[k]=0;qr[k]=0;
+ }
+};
+const format={
+ cape:v=>v,capeV:"cape",
+ moist:v=>v+"%",lift:v=>v.toFixed(1),
+ shear:v=>v+" m/s",rotation:v=>v.toFixed(2),
+ diff:v=>v.toFixed(3),condRate:v=>v.toFixed(1),
+ rainRate:v=>v.toFixed(1),evap:v=>v.toFixed(1),
+ timeScale:v=>v.toFixed(1)+"×"
+};
+const pairs=[
+ ["cape","capeV"],["moist","moistV"],["lift","liftV"],
+ ["shear","shearV"],["rotation","rotationV"],["diff","diffV"],
+ ["condRate","condV"],["rainRate","rainV"],["evap","evapV"],
+ ["timeScale","timeScaleV"]
+];
+pairs.forEach(([id,out])=>{
+ $(id).addEventListener("input",()=>{
+  const v=+$ (id).value;
+  $(out).textContent=(format[id]|| (x=>x))(v);
+ });
+});
+initialize();
+resize();
+$("status").textContent="RUNNING";
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
