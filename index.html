@@ -185,7 +185,7 @@ function initialize(){
    // Moist boundary layer, progressively drier aloft.
    qv[k]=.004+c.moist*.012*Math.exp(-height/1800);
    // Weak environmental stratification.
-   b[k]=-.00008*height;
+   b[k]=0;
   }
  }
  // A small thermal perturbation is an initial condition, not a scripted storm.
